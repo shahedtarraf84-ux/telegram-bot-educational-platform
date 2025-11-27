@@ -249,11 +249,9 @@ async def _post_shutdown(application: Application):
     await close_db()
 
 
-def main():
-    """Main function"""
-    logger.info("Starting Educational Platform Bot...")
+def create_application() -> Application:
+    logger.info("Initializing Educational Platform Bot application...")
     
-    # Create application with custom timeouts
     from telegram.request import HTTPXRequest
     request = HTTPXRequest(
         connection_pool_size=8,
@@ -619,7 +617,15 @@ def main():
     # Error handler
     application.add_error_handler(error_handler)
     
-    # Run bot
+    return application
+
+
+def main():
+    """Main function"""
+    logger.info("Starting Educational Platform Bot...")
+    
+    application = create_application()
+    
     logger.info("Bot is running... Press Ctrl+C to stop")
     application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
