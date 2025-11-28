@@ -2,12 +2,14 @@
 Script to get your Telegram ID
 Run this to find your telegram_id
 """
+import os
+
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 import asyncio
 
 # Your bot token
-BOT_TOKEN = "8018814203:AAEarBHGWrHuhUwE1LPNhgDxDBd3Q2TrQag"
+BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 
 async def get_my_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Get user's telegram ID"""
@@ -47,19 +49,9 @@ async def get_my_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"TELEGRAM_ADMIN_ID={user_id}")
     print(f"{'='*50}\n")
 
-def main():
+
+def build_application() -> Application:
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", get_my_id))
     app.add_handler(CommandHandler("id", get_my_id))
-    
-    print("\n" + "="*60)
-    print("🤖 Bot started!")
-    print("="*60)
-    print("📱 Open Telegram and send /start to @shahdai_bot")
-    print("🆔 You will get your Telegram ID")
-    print("="*60 + "\n")
-    
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
+    return app

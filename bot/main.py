@@ -618,20 +618,3 @@ def create_application() -> Application:
     application.add_error_handler(error_handler)
     
     return application
-
-
-def main():
-    """Main function"""
-    logger.info("Starting Educational Platform Bot...")
-    
-    application = create_application()
-    
-    logger.info("Bot is running... Press Ctrl+C to stop")
-    application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
-
-
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        logger.info("Shutdown complete")

@@ -1,6 +1,6 @@
 """FastAPI entrypoint for Vercel / generic deployments.
-This file simply re-exports the admin dashboard FastAPI app
-so that platforms looking for main.app can find it.
+This file simply re-exports the Telegram bot webhook FastAPI app
+so that platforms looking for main.app can find the webhook server.
 """
 
-from admin_dashboard.app import app  # noqa: F401
+from webhook_server import app  # noqa: F401

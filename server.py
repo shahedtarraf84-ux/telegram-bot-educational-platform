@@ -20,6 +20,11 @@ from bot.main import create_application
 from admin_dashboard.app import app as dashboard_app
 from utils.notifications import NotificationScheduler
 
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN") or settings.TELEGRAM_BOT_TOKEN
+MONGODB_URL = os.environ.get("MONGODB_URL") or settings.MONGODB_URL
+MONGODB_DB_NAME = os.environ.get("MONGODB_DB_NAME") or settings.MONGODB_DB_NAME
+BOT_WEBHOOK_URL = os.environ.get("BOT_WEBHOOK_URL") or settings.BOT_WEBHOOK_URL
+
 
 # Create Telegram bot application
 telegram_app = create_application()
@@ -38,7 +43,7 @@ async def on_startup() -> None:
     await telegram_app.initialize()
     await telegram_app.start()
 
-    webhook_url = settings.BOT_WEBHOOK_URL
+    webhook_url = BOT_WEBHOOK_URL
     if webhook_url:
         await telegram_app.bot.set_webhook(url=webhook_url)
         logger.info(f"Webhook set to {webhook_url}")

@@ -763,13 +763,3 @@ async def student_grades(
         "average_grade": average_grade,
         "username": username
     })
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        "app:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.DEBUG
-    )
