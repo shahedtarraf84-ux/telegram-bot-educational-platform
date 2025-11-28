@@ -32,6 +32,7 @@ async def on_shutdown() -> None:
 
 
 @app.post("/")
+@app.post("/api/webhook")
 async def telegram_webhook(request: Request) -> Dict[str, Any]:
     """Telegram webhook endpoint (POST-only)."""
     data = await request.json()
