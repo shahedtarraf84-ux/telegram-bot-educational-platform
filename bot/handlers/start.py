@@ -53,13 +53,28 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Auto-register admin with default info
         first_name = update.effective_user.first_name or "Admin"
         
-        user = User(
-            telegram_id=telegram_id,
-            full_name=first_name,
-            phone="+963000000000",
-            email=settings.ADMIN_EMAIL
-        )
-        await user.insert()
+        try:
+            user = User(
+                telegram_id=telegram_id,
+                full_name=first_name,
+                phone="+963000000000",
+                email=settings.ADMIN_EMAIL
+            )
+            await user.insert()
+        except ValidationError as e:
+            logger.error(f"Admin registration validation error for {telegram_id}: {e}")
+            await update.message.reply_text(
+                "❌ حدث خطأ أثناء تسجيل حساب الأدمن في قاعدة البيانات.\n"
+                "يرجى التأكد من صحة البريد ADMIN_EMAIL في ملف الإعدادات ثم المحاولة مجدداً."
+            )
+            return ConversationHandler.END
+        except Exception as e:
+            logger.error(f"Unexpected error during admin registration for {telegram_id}: {e}")
+            await update.message.reply_text(
+                "❌ حدث خطأ غير متوقع أثناء تسجيل حساب الأدمن.\n"
+                "يرجى المحاولة لاحقاً أو التواصل مع المطور."
+            )
+            return ConversationHandler.END
         
         keyboard = get_admin_menu_keyboard()
         text = f"""
@@ -161,7 +176,14 @@ async def asking_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ASKING_EMAIL
     
     # Check if email already exists
-    existing_user = await User.find_one(User.email == email)
+    try:
+        existing_user = await User.find_one(User.email == email)
+    except ValidationError as e:
+        logger.error(f"Validation error while checking email {email}: {e}")
+        existing_user = None
+    except Exception as e:
+        logger.error(f"Unexpected DB error while checking email {email}: {e}")
+        existing_user = None
     if existing_user:
         await update.message.reply_text(
             "❌ هذا البريد الإلكتروني مسجل مسبقاً!\n\n"
