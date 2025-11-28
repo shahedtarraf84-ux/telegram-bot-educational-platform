@@ -4,6 +4,7 @@ Start Handler - Registration
 from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 from loguru import logger
+from pydantic import ValidationError
 
 from database.models.user import User
 from bot.keyboards.main_keyboards import get_main_menu_keyboard, get_admin_menu_keyboard, get_cancel_button
@@ -22,7 +23,16 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     is_admin = telegram_id == settings.TELEGRAM_ADMIN_ID
     
     # Check if user already registered
-    user = await User.find_one(User.telegram_id == telegram_id)
+    try:
+        user = await User.find_one(User.telegram_id == telegram_id)
+    except ValidationError as e:
+        # مشكلة في تحميل مستند مستخدم من قاعدة البيانات (سكيما قديمة أو بيانات تالفة)
+        logger.error(f"Validation error while loading user {telegram_id}: {e}")
+        user = None
+    except Exception as e:
+        # أي خطأ آخر في قاعدة البيانات لا يجب أن يسقط البوت بالكامل
+        logger.error(f"Unexpected DB error while fetching user {telegram_id}: {e}")
+        user = None
     
     if user:
         # User already registered
