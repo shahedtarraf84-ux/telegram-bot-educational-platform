@@ -19,87 +19,117 @@ async def show_course_statistics(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text("❌ هذه الوظيفة متاحة للأدمن فقط.")
         return
     
-    # Load all data
-    courses_path = Path('data/courses.json')
-    videos_path = Path('data/videos.json')
-    assignments_path = Path('data/assignments.json')
-    exams_path = Path('data/exams.json')
-    submissions_path = Path('data/submissions.json')
-    
-    courses = []
-    videos = []
-    assignments = []
-    exams = []
-    submissions = []
-    
-    if courses_path.exists():
-        with open(courses_path, 'r', encoding='utf-8') as f:
-            courses = json.load(f)
-    
-    if videos_path.exists():
-        with open(videos_path, 'r', encoding='utf-8') as f:
-            videos = json.load(f)
-    
-    if assignments_path.exists():
-        with open(assignments_path, 'r', encoding='utf-8') as f:
-            assignments = json.load(f)
-    
-    if exams_path.exists():
-        with open(exams_path, 'r', encoding='utf-8') as f:
-            exams = json.load(f)
-    
-    if submissions_path.exists():
-        with open(submissions_path, 'r', encoding='utf-8') as f:
-            submissions = json.load(f)
-    
-    if not courses:
-        await update.message.reply_text(
-            "❌ لا توجد دورات بعد!\n\n"
-            "أضف دورة من Dashboard أولاً."
-        )
-        return
-    
-    # Build statistics text
-    text = "📊 **إحصائيات الدورات الشاملة**\n\n"
-    text += f"📚 **إجمالي الدورات:** {len(courses)}\n"
-    text += f"🎥 **إجمالي الفيديوهات:** {len(videos)}\n"
-    text += f"📝 **إجمالي الواجبات:** {len(assignments)}\n"
-    text += f"📋 **إجمالي الاختبارات:** {len(exams)}\n"
-    text += f"📤 **إجمالي التسليمات:** {len(submissions)}\n\n"
-    text += "---\n\n"
-    
-    keyboard = []
-    
-    # Show each course with details
-    for course in courses:
-        course_id = course.get('id')
-        course_title = course.get('title', 'دورة بدون عنوان')
+    try:
+        # Load all data
+        courses_path = Path('data/courses.json')
+        videos_path = Path('data/videos.json')
+        assignments_path = Path('data/assignments.json')
+        exams_path = Path('data/exams.json')
+        submissions_path = Path('data/submissions.json')
         
-        # Count items for this course
-        course_videos = [v for v in videos if v.get('item_id') == course_id]
-        course_assignments = [a for a in assignments if a.get('item_id') == course_id]
-        course_exams = [e for e in exams if e.get('course_id') == course_id]
-        course_submissions = [s for s in submissions if s.get('course_id') == course_id]
+        courses = []
+        videos = []
+        assignments = []
+        exams = []
+        submissions = []
         
-        text += f"📚 **{course_title}**\n"
-        text += f"   🆔 ID: `{course_id}`\n"
-        text += f"   🎥 فيديوهات: {len(course_videos)}\n"
-        text += f"   📝 واجبات: {len(course_assignments)}\n"
-        text += f"   📋 اختبارات: {len(course_exams)}\n"
-        text += f"   📤 تسليمات: {len(course_submissions)}\n\n"
+        try:
+            if courses_path.exists():
+                with open(courses_path, 'r', encoding='utf-8') as f:
+                    courses = json.load(f)
+        except Exception as e:
+            logger.error(f"Error loading courses.json: {repr(e)}")
+            print(f"ERROR: Error loading courses.json: {repr(e)}", flush=True)
         
-        keyboard.append([
-            InlineKeyboardButton(
-                f"📊 تفاصيل {course_title[:20]}",
-                callback_data=f"course_stats_{course_id}"
+        try:
+            if videos_path.exists():
+                with open(videos_path, 'r', encoding='utf-8') as f:
+                    videos = json.load(f)
+        except Exception as e:
+            logger.error(f"Error loading videos.json: {repr(e)}")
+            print(f"ERROR: Error loading videos.json: {repr(e)}", flush=True)
+        
+        try:
+            if assignments_path.exists():
+                with open(assignments_path, 'r', encoding='utf-8') as f:
+                    assignments = json.load(f)
+        except Exception as e:
+            logger.error(f"Error loading assignments.json: {repr(e)}")
+            print(f"ERROR: Error loading assignments.json: {repr(e)}", flush=True)
+        
+        try:
+            if exams_path.exists():
+                with open(exams_path, 'r', encoding='utf-8') as f:
+                    exams = json.load(f)
+        except Exception as e:
+            logger.error(f"Error loading exams.json: {repr(e)}")
+            print(f"ERROR: Error loading exams.json: {repr(e)}", flush=True)
+        
+        try:
+            if submissions_path.exists():
+                with open(submissions_path, 'r', encoding='utf-8') as f:
+                    submissions = json.load(f)
+        except Exception as e:
+            logger.error(f"Error loading submissions.json: {repr(e)}")
+            print(f"ERROR: Error loading submissions.json: {repr(e)}", flush=True)
+    
+        if not courses:
+            await update.message.reply_text(
+                "❌ لا توجد دورات بعد!\n\n"
+                "أضف دورة من Dashboard أولاً."
             )
-        ])
+            return
+        
+        # Build statistics text
+        text = "📊 **إحصائيات الدورات الشاملة**\n\n"
+        text += f"📚 **إجمالي الدورات:** {len(courses)}\n"
+        text += f"🎥 **إجمالي الفيديوهات:** {len(videos)}\n"
+        text += f"📝 **إجمالي الواجبات:** {len(assignments)}\n"
+        text += f"📋 **إجمالي الاختبارات:** {len(exams)}\n"
+        text += f"📤 **إجمالي التسليمات:** {len(submissions)}\n\n"
+        text += "---\n\n"
+        
+        keyboard = []
+        
+        # Show each course with details
+        for course in courses:
+            course_id = course.get('id')
+            course_title = course.get('title', 'دورة بدون عنوان')
+            
+            # Count items for this course
+            course_videos = [v for v in videos if v.get('item_id') == course_id]
+            course_assignments = [a for a in assignments if a.get('item_id') == course_id]
+            course_exams = [e for e in exams if e.get('course_id') == course_id]
+            course_submissions = [s for s in submissions if s.get('course_id') == course_id]
+            
+            text += f"📚 **{course_title}**\n"
+            text += f"   🆔 ID: `{course_id}`\n"
+            text += f"   🎥 فيديوهات: {len(course_videos)}\n"
+            text += f"   📝 واجبات: {len(course_assignments)}\n"
+            text += f"   📋 اختبارات: {len(course_exams)}\n"
+            text += f"   📤 تسليمات: {len(course_submissions)}\n\n"
+            
+            keyboard.append([
+                InlineKeyboardButton(
+                    f"📊 تفاصيل {course_title[:20]}",
+                    callback_data=f"course_stats_{course_id}"
+                )
+            ])
+        
+        await update.message.reply_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown"
+        )
     
-    await update.message.reply_text(
-        text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="Markdown"
-    )
+    except Exception as e:
+        error_msg = f"Error in show_course_statistics: {repr(e)}"
+        logger.error(error_msg, exc_info=True)
+        print(f"ERROR: {error_msg}", flush=True)
+        await update.message.reply_text(
+            "❌ حدث خطأ في عرض الإحصائيات!\n\n"
+            "يرجى المحاولة لاحقاً أو التواصل مع الإدارة."
+        )
 
 
 async def show_detailed_course_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -47,8 +47,16 @@ def verify_admin(credentials: HTTPBasicCredentials = Depends(security)):
 async def startup_event():
     """Initialize on startup"""
     logger.info("Starting Admin Dashboard...")
-    await init_db()
-    logger.info("Admin Dashboard ready!")
+    print("Starting Admin Dashboard...", flush=True)
+    try:
+        await init_db()
+        logger.info("Admin Dashboard ready!")
+        print("Admin Dashboard ready!", flush=True)
+    except Exception as e:
+        error_msg = f"Failed to initialize Admin Dashboard: {repr(e)}"
+        logger.error(error_msg, exc_info=True)
+        print(f"ERROR: {error_msg}", flush=True)
+        raise
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -56,7 +64,13 @@ async def dashboard(request: Request, username: str = Depends(verify_admin)):
     """Main dashboard"""
     try:
         # Get statistics
-        total_users = await User.find().count()
+        try:
+            total_users = await User.find().count()
+        except Exception as e:
+            error_msg = f"Error fetching total users: {repr(e)}"
+            logger.error(error_msg, exc_info=True)
+            print(f"ERROR: {error_msg}", flush=True)
+            total_users = 0
         
         # Get pending approvals - handle potential errors
         try:
@@ -64,14 +78,18 @@ async def dashboard(request: Request, username: str = Depends(verify_admin)):
                 User.courses.approval_status == "pending"
             ).count()
         except Exception as e:
-            logger.error(f"Error fetching pending approvals: {repr(e)}")
+            error_msg = f"Error fetching pending approvals: {repr(e)}"
+            logger.error(error_msg, exc_info=True)
+            print(f"ERROR: {error_msg}", flush=True)
             pending_approvals = 0
         
         # Get recent users
         try:
             recent_users = await User.find().sort(-User.registered_at).limit(10).to_list()
         except Exception as e:
-            logger.error(f"Error fetching recent users: {repr(e)}")
+            error_msg = f"Error fetching recent users: {repr(e)}"
+            logger.error(error_msg, exc_info=True)
+            print(f"ERROR: {error_msg}", flush=True)
             recent_users = []
         
         return templates.TemplateResponse("dashboard.html", {
@@ -82,7 +100,9 @@ async def dashboard(request: Request, username: str = Depends(verify_admin)):
             "username": username
         })
     except Exception as e:
-        logger.error(f"Dashboard error: {repr(e)}")
+        error_msg = f"Dashboard error: {repr(e)}"
+        logger.error(error_msg, exc_info=True)
+        print(f"ERROR: {error_msg}", flush=True)
         raise HTTPException(status_code=500, detail=f"Dashboard error: {str(e)}")
 
 
@@ -98,7 +118,9 @@ async def students_list(request: Request, username: str = Depends(verify_admin))
             "username": username
         })
     except Exception as e:
-        logger.error(f"Students list error: {repr(e)}")
+        error_msg = f"Students list error: {repr(e)}"
+        logger.error(error_msg, exc_info=True)
+        print(f"ERROR: {error_msg}", flush=True)
         raise HTTPException(status_code=500, detail=f"Students list error: {str(e)}")
 
 

@@ -88,10 +88,20 @@ async def health_check() -> dict:
 @app.post("/webhook")
 async def telegram_webhook(request: Request) -> dict:
     """Telegram webhook endpoint."""
-    data = await request.json()
-    update = Update.de_json(data, telegram_app.bot)
-    await telegram_app.process_update(update)
-    return {"ok": True}
+    try:
+        data = await request.json()
+        update = Update.de_json(data, telegram_app.bot)
+        await telegram_app.process_update(update)
+        return {"ok": True}
+    except Exception as e:
+        # Log to both logger and stdout for Vercel visibility
+        logger.error(f"Webhook processing error: {repr(e)}", exc_info=True)
+        print(f"ERROR: Webhook processing failed: {repr(e)}", flush=True)
+        import traceback
+        traceback.print_exc()
+        # Return 200 OK to Telegram (so it doesn't retry)
+        # but log the error for debugging
+        return {"ok": True, "error": str(e)}
 
 
 if __name__ == "__main__":

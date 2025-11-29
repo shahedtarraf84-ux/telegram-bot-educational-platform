@@ -216,8 +216,13 @@ async def asking_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
         
     except Exception as e:
-        # نسجل تفاصيل الخطأ في الـ logs فقط، ونعرض رسالة ودية للمستخدم
-        logger.error(f"Registration error for telegram_id={update.effective_user.id}, email={email}: {repr(e)}")
+        # Log error details to both logger and stdout for Vercel visibility
+        error_msg = f"Registration error for telegram_id={update.effective_user.id}, email={email}: {repr(e)}"
+        logger.error(error_msg, exc_info=True)
+        print(f"ERROR: {error_msg}", flush=True)
+        import traceback
+        traceback.print_exc()
+        
         msg = "❌ **حدث خطأ أثناء التسجيل!**\n\n"
         error_text = str(e).lower()
         if "duplicate key" in error_text or "e11000" in error_text:
