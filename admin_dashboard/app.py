@@ -54,34 +54,52 @@ async def startup_event():
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, username: str = Depends(verify_admin)):
     """Main dashboard"""
-    # Get statistics
-    total_users = await User.find().count()
-    pending_approvals = await User.find(
-        User.courses.approval_status == "pending"
-    ).count()
-    
-    # Get recent users
-    recent_users = await User.find().sort(-User.registered_at).limit(10).to_list()
-    
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
-        "total_users": total_users,
-        "pending_approvals": pending_approvals,
-        "recent_users": recent_users,
-        "username": username
-    })
+    try:
+        # Get statistics
+        total_users = await User.find().count()
+        
+        # Get pending approvals - handle potential errors
+        try:
+            pending_approvals = await User.find(
+                User.courses.approval_status == "pending"
+            ).count()
+        except Exception as e:
+            logger.error(f"Error fetching pending approvals: {repr(e)}")
+            pending_approvals = 0
+        
+        # Get recent users
+        try:
+            recent_users = await User.find().sort(-User.registered_at).limit(10).to_list()
+        except Exception as e:
+            logger.error(f"Error fetching recent users: {repr(e)}")
+            recent_users = []
+        
+        return templates.TemplateResponse("dashboard.html", {
+            "request": request,
+            "total_users": total_users,
+            "pending_approvals": pending_approvals,
+            "recent_users": recent_users,
+            "username": username
+        })
+    except Exception as e:
+        logger.error(f"Dashboard error: {repr(e)}")
+        raise HTTPException(status_code=500, detail=f"Dashboard error: {str(e)}")
 
 
 @app.get("/students", response_class=HTMLResponse)
 async def students_list(request: Request, username: str = Depends(verify_admin)):
     """Students list"""
-    students = await User.find().sort(-User.registered_at).to_list()
-    
-    return templates.TemplateResponse("students.html", {
-        "request": request,
-        "students": students,
-        "username": username
-    })
+    try:
+        students = await User.find().sort(-User.registered_at).to_list()
+        
+        return templates.TemplateResponse("students.html", {
+            "request": request,
+            "students": students,
+            "username": username
+        })
+    except Exception as e:
+        logger.error(f"Students list error: {repr(e)}")
+        raise HTTPException(status_code=500, detail=f"Students list error: {str(e)}")
 
 
 @app.get("/student/{telegram_id}", response_class=HTMLResponse)

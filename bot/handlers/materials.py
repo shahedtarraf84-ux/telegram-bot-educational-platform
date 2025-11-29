@@ -101,18 +101,28 @@ async def show_material_details(update: Update, context: ContextTypes.DEFAULT_TY
     query = update.callback_query
     await query.answer()
     
-    material_id = query.data.replace("material_", "")
-    material = get_material(material_id)
-    
-    if not material:
-        await query.message.reply_text("❌ المادة غير موجودة")
-        return
-    
-    # Get user
-    user = await User.find_one(User.telegram_id == update.effective_user.id)
-    if not user:
-        await query.message.reply_text("❌ يرجى التسجيل أولاً باستخدام /start")
-        return
+    try:
+        material_id = query.data.replace("material_", "")
+        material = get_material(material_id)
+        
+        if not material:
+            await query.message.reply_text("❌ المادة غير موجودة")
+            return
+        
+        # Get user
+        try:
+            user = await User.find_one(User.telegram_id == update.effective_user.id)
+        except Exception as db_error:
+            logger.error(f"Database error while fetching user {update.effective_user.id}: {repr(db_error)}")
+            await query.message.reply_text("❌ خطأ في قاعدة البيانات. يرجى المحاولة لاحقاً.")
+            return
+            
+        if not user:
+            await query.message.reply_text("❌ يرجى التسجيل أولاً باستخدام /start")
+            return
+    except Exception as e:
+        logger.error(f"Error in show_material_details: {repr(e)}")
+        await query.message.reply_text("❌ حدث خطأ. يرجى المحاولة لاحقاً.")
     
     # Check if already enrolled
     enrollment = user.get_material_enrollment(material_id)

@@ -74,13 +74,23 @@ async def show_videos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    course_id = query.data.replace("videos_", "")
-    
-    # Verify user has access
-    user = await User.find_one(User.telegram_id == update.effective_user.id)
-    if not user or not user.has_approved_course(course_id):
-        await query.message.reply_text("❌ ليس لديك صلاحية الوصول لهذا المحتوى")
-        return
+    try:
+        course_id = query.data.replace("videos_", "")
+        
+        # Verify user has access
+        try:
+            user = await User.find_one(User.telegram_id == update.effective_user.id)
+        except Exception as db_error:
+            logger.error(f"Database error while fetching user {update.effective_user.id}: {repr(db_error)}")
+            await query.message.reply_text("❌ خطأ في قاعدة البيانات. يرجى المحاولة لاحقاً.")
+            return
+            
+        if not user or not user.has_approved_course(course_id):
+            await query.message.reply_text("❌ ليس لديك صلاحية الوصول لهذا المحتوى")
+            return
+    except Exception as e:
+        logger.error(f"Error in show_videos: {repr(e)}")
+        await query.message.reply_text("❌ حدث خطأ. يرجى المحاولة لاحقاً.")
     # If a group link is configured, show it instead of content
     link = None
     try:

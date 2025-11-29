@@ -52,19 +52,29 @@ async def show_course_details(update: Update, context: ContextTypes.DEFAULT_TYPE
     query = update.callback_query
     await query.answer()
     
-    # Extract course_id from callback_data
-    course_id = query.data.replace("course_", "")
-    course = get_course(course_id)
-    
-    if not course:
-        await query.edit_message_text("❌ الدورة غير موجودة")
-        return
-    
-    # Get user
-    user = await User.find_one(User.telegram_id == update.effective_user.id)
-    if not user:
-        await query.edit_message_text("❌ يرجى التسجيل أولاً باستخدام /start")
-        return
+    try:
+        # Extract course_id from callback_data
+        course_id = query.data.replace("course_", "")
+        course = get_course(course_id)
+        
+        if not course:
+            await query.edit_message_text("❌ الدورة غير موجودة")
+            return
+        
+        # Get user
+        try:
+            user = await User.find_one(User.telegram_id == update.effective_user.id)
+        except Exception as db_error:
+            logger.error(f"Database error while fetching user {update.effective_user.id}: {repr(db_error)}")
+            await query.edit_message_text("❌ خطأ في قاعدة البيانات. يرجى المحاولة لاحقاً.")
+            return
+            
+        if not user:
+            await query.edit_message_text("❌ يرجى التسجيل أولاً باستخدام /start")
+            return
+    except Exception as e:
+        logger.error(f"Error in show_course_details: {repr(e)}")
+        await query.edit_message_text("❌ حدث خطأ. يرجى المحاولة لاحقاً.")
     
     # Check if already enrolled
     enrollment = user.get_course_enrollment(course_id)
