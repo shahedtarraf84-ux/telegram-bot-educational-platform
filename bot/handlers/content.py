@@ -16,42 +16,52 @@ async def show_lectures(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    course_id = query.data.replace("lectures_", "")
-    
-    # Verify user has access
-    user = await User.find_one(User.telegram_id == update.effective_user.id)
-    if not user or not user.has_approved_course(course_id):
-        await query.message.reply_text("❌ ليس لديك صلاحية الوصول لهذا المحتوى")
-        return
-    # If a group link is configured, show it instead of content
-    link = None
     try:
-        from config.courses_config import get_course
-        course = get_course(course_id)
-        if course and course.get('group_link'):
-            link = course['group_link']
-        else:
-            gl_path = Path('data/group_links.json')
-            if gl_path.exists():
-                with open(gl_path, 'r', encoding='utf-8') as f:
-                    gl = json.load(f)
-                    link = gl.get('courses', {}).get(course_id) or gl.get(course_id)
-    except Exception as e:
-        logger.error(f"Error loading course group link: {e}")
-    if link:
-        text = f"🔗 **رابط مجموعة الدورة**\n\nانضم عبر الزر التالي:"
-        keyboard = [
-            [InlineKeyboardButton("🔗 الانضمام إلى المجموعة", url=link)],
-            [InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")]
-        ]
-        await query.message.edit_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="Markdown"
-        )
-        return
-    
-    text = """
+        course_id = query.data.replace("lectures_", "")
+        
+        # Verify user has access
+        try:
+            user = await User.find_one(User.telegram_id == update.effective_user.id)
+        except Exception as db_error:
+            logger.error(f"Database error while fetching user {update.effective_user.id}: {repr(db_error)}")
+            await query.message.reply_text("❌ خطأ في قاعدة البيانات. يرجى المحاولة لاحقاً.")
+            return
+        
+        if not user or not user.has_approved_course(course_id):
+            logger.warning(f"User {update.effective_user.id} attempted to access lectures for course {course_id} without approval")
+            await query.message.reply_text("❌ ليس لديك صلاحية الوصول لهذا المحتوى")
+            return
+        
+        # If a group link is configured, show it instead of content
+        link = None
+        try:
+            from config.courses_config import get_course
+            course = get_course(course_id)
+            if course and course.get('group_link'):
+                link = course['group_link']
+            else:
+                gl_path = Path('data/group_links.json')
+                if gl_path.exists():
+                    with open(gl_path, 'r', encoding='utf-8') as f:
+                        gl = json.load(f)
+                        link = gl.get('courses', {}).get(course_id) or gl.get(course_id)
+        except Exception as e:
+            logger.error(f"Error loading course group link: {e}")
+        
+        if link:
+            text = f"🔗 **رابط مجموعة الدورة**\n\nانضم عبر الزر التالي:"
+            keyboard = [
+                [InlineKeyboardButton("🔗 الانضمام إلى المجموعة", url=link)],
+                [InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")]
+            ]
+            await query.message.edit_text(
+                text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode="Markdown"
+            )
+            return
+        
+        text = """
 📖 **المحاضرات النظرية**
 
 سيتم إضافة المحاضرات قريباً...
@@ -59,14 +69,17 @@ async def show_lectures(update: Update, context: ContextTypes.DEFAULT_TYPE):
 للأدمن: لرفع المحاضرات:
 1. أرسل ملفات PDF للبوت
 2. أو أضف روابط Google Drive
-    """
-    
-    keyboard = [[InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")]]
-    
-    await query.message.reply_text(
-        text,
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+        """
+        
+        keyboard = [[InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")]]
+        
+        await query.message.reply_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    except Exception as e:
+        logger.error(f"Error in show_lectures: {repr(e)}", exc_info=True)
+        await query.message.reply_text("❌ حدث خطأ. يرجى المحاولة لاحقاً.")
 
 
 async def show_videos(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -86,113 +99,116 @@ async def show_videos(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
             
         if not user or not user.has_approved_course(course_id):
+            logger.warning(f"User {update.effective_user.id} attempted to access videos for course {course_id} without approval")
             await query.message.reply_text("❌ ليس لديك صلاحية الوصول لهذا المحتوى")
             return
-    except Exception as e:
-        logger.error(f"Error in show_videos: {repr(e)}")
-        await query.message.reply_text("❌ حدث خطأ. يرجى المحاولة لاحقاً.")
-    # If a group link is configured, show it instead of content
-    link = None
-    try:
-        from config.courses_config import get_course
-        course = get_course(course_id)
-        if course and course.get('group_link'):
-            link = course['group_link']
-        else:
-            gl_path = Path('data/group_links.json')
-            if gl_path.exists():
-                with open(gl_path, 'r', encoding='utf-8') as f:
-                    gl = json.load(f)
-                    link = gl.get('courses', {}).get(course_id) or gl.get(course_id)
-    except Exception as e:
-        logger.error(f"Error loading course group link: {e}")
-    if link:
-        text = f"🔗 **رابط مجموعة الدورة**\n\nانضم عبر الزر التالي:"
-        keyboard = [
-            [InlineKeyboardButton("🔗 الانضمام إلى المجموعة", url=link)],
-            [InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")]
-        ]
-        await query.message.edit_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="Markdown"
-        )
-        return
-    
-    # Load videos from JSON
-    import json
-    from pathlib import Path
-    
-    videos_file = Path('data/videos.json')
-    course_videos = []
-    
-    if videos_file.exists():
+        
+        # If a group link is configured, show it instead of content
+        link = None
         try:
-            with open(videos_file, 'r', encoding='utf-8') as f:
-                all_videos = json.load(f)
-                # Filter videos for this course
-                course_videos = [v for v in all_videos if v.get('type') == 'courses' and v.get('item_id') == course_id]
+            from config.courses_config import get_course
+            course = get_course(course_id)
+            if course and course.get('group_link'):
+                link = course['group_link']
+            else:
+                gl_path = Path('data/group_links.json')
+                if gl_path.exists():
+                    with open(gl_path, 'r', encoding='utf-8') as f:
+                        gl = json.load(f)
+                        link = gl.get('courses', {}).get(course_id) or gl.get(course_id)
         except Exception as e:
-            logger.error(f"Error loading videos: {e}")
-    
-    if course_videos:
-        text = f"🎥 **الفيديوهات المتاحة** ({len(course_videos)} فيديو)\n\n"
+            logger.error(f"Error loading course group link: {e}")
         
-        keyboard = []
-        # Remove duplicates by title
-        seen_titles = set()
-        unique_videos = []
+        if link:
+            text = f"🔗 **رابط مجموعة الدورة**\n\nانضم عبر الزر التالي:"
+            keyboard = [
+                [InlineKeyboardButton("🔗 الانضمام إلى المجموعة", url=link)],
+                [InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")]
+            ]
+            await query.message.edit_text(
+                text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode="Markdown"
+            )
+            return
         
-        for video in course_videos:
-            title = video.get('title', '')
-            if title and title not in seen_titles:
-                seen_titles.add(title)
-                unique_videos.append(video)
+        # Load videos from JSON
+        import json
+        from pathlib import Path
         
-        for i, video in enumerate(unique_videos, 1):
-            title = video.get('title', f'فيديو {i}')
-            duration = video.get('duration', 0)
-            minutes = duration // 60
-            seconds = duration % 60
+        videos_file = Path('data/videos.json')
+        course_videos = []
+        
+        if videos_file.exists():
+            try:
+                with open(videos_file, 'r', encoding='utf-8') as f:
+                    all_videos = json.load(f)
+                    # Filter videos for this course
+                    course_videos = [v for v in all_videos if v.get('type') == 'courses' and v.get('item_id') == course_id]
+            except Exception as e:
+                logger.error(f"Error loading videos: {e}")
+        
+        if course_videos:
+            text = f"🎥 **الفيديوهات المتاحة** ({len(course_videos)} فيديو)\n\n"
             
-            text += f"{i}. **{title}**\n"
-            text += f"   ⏱️ المدة: {minutes}:{seconds:02d}\n"
-            if video.get('description'):
-                desc = video.get('description')[:50]  # Limit description length
-                text += f"   📝 {desc}...\n"
-            text += "\n"
+            keyboard = []
+            # Remove duplicates by title
+            seen_titles = set()
+            unique_videos = []
             
-            # Add button to watch video
-            keyboard.append([InlineKeyboardButton(
-                f"▶️ مشاهدة: {title[:30]}", 
-                callback_data=f"watch_{i-1}_{course_id}"
-            )])
-        
-        keyboard.append([InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")])
-        
-        await query.message.edit_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="Markdown"
-        )
-        
-        # Store videos in context for watching
-        context.user_data[f'videos_{course_id}'] = unique_videos
-    else:
-        text = """
+            for video in course_videos:
+                title = video.get('title', '')
+                if title and title not in seen_titles:
+                    seen_titles.add(title)
+                    unique_videos.append(video)
+            
+            for i, video in enumerate(unique_videos, 1):
+                title = video.get('title', f'فيديو {i}')
+                duration = video.get('duration', 0)
+                minutes = duration // 60
+                seconds = duration % 60
+                
+                text += f"{i}. **{title}**\n"
+                text += f"   ⏱️ المدة: {minutes}:{seconds:02d}\n"
+                if video.get('description'):
+                    desc = video.get('description')[:50]  # Limit description length
+                    text += f"   📝 {desc}...\n"
+                text += "\n"
+                
+                # Add button to watch video
+                keyboard.append([InlineKeyboardButton(
+                    f"▶️ مشاهدة: {title[:30]}", 
+                    callback_data=f"watch_{i-1}_{course_id}"
+                )])
+            
+            keyboard.append([InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")])
+            
+            await query.message.edit_text(
+                text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode="Markdown"
+            )
+            
+            # Store videos in context for watching
+            context.user_data[f'videos_{course_id}'] = unique_videos
+        else:
+            text = """
 🎥 **الفيديوهات**
 
 لا توجد فيديوهات متاحة حالياً...
 
 📹 سيتم إضافة الفيديوهات قريباً من قبل المدرس.
-        """
-        
-        keyboard = [[InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")]]
-        
-        await query.message.edit_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+            """
+            
+            keyboard = [[InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")]]
+            
+            await query.message.edit_text(
+                text,
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+    except Exception as e:
+        logger.error(f"Error in show_videos: {repr(e)}", exc_info=True)
+        await query.message.reply_text("❌ حدث خطأ. يرجى المحاولة لاحقاً.")
 
 
 async def watch_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -268,113 +284,126 @@ async def show_assignments(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    course_id = query.data.replace("assignments_", "")
-    
-    # Verify user has access
-    user = await User.find_one(User.telegram_id == update.effective_user.id)
-    if not user or not user.has_approved_course(course_id):
-        await query.message.reply_text("❌ ليس لديك صلاحية الوصول لهذا المحتوى")
-        return
-    # If a group link is configured, show it instead of content
-    link = None
     try:
-        from config.courses_config import get_course
-        course = get_course(course_id)
-        if course and course.get('group_link'):
-            link = course['group_link']
-        else:
-            gl_path = Path('data/group_links.json')
-            if gl_path.exists():
-                with open(gl_path, 'r', encoding='utf-8') as f:
-                    gl = json.load(f)
-                    link = gl.get('courses', {}).get(course_id) or gl.get(course_id)
-    except Exception as e:
-        logger.error(f"Error loading course group link: {e}")
-    if link:
-        text = f"🔗 **رابط مجموعة الدورة**\n\nانضم عبر الزر التالي:"
-        keyboard = [
-            [InlineKeyboardButton("🔗 الانضمام إلى المجموعة", url=link)],
-            [InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")]
-        ]
-        await query.message.edit_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="Markdown"
-        )
-        return
-    
-    # Load assignments from JSON
-    import json
-    from pathlib import Path
-    from datetime import datetime
-    
-    assignments_file = Path('data/assignments.json')
-    course_assignments = []
-    
-    if assignments_file.exists():
+        course_id = query.data.replace("assignments_", "")
+        
+        # Verify user has access
         try:
-            with open(assignments_file, 'r', encoding='utf-8') as f:
-                all_assignments = json.load(f)
-                # Filter assignments for this course
-                course_assignments = [a for a in all_assignments if a.get('type') == 'courses' and a.get('item_id') == course_id]
+            user = await User.find_one(User.telegram_id == update.effective_user.id)
+        except Exception as db_error:
+            logger.error(f"Database error while fetching user {update.effective_user.id}: {repr(db_error)}")
+            await query.message.reply_text("❌ خطأ في قاعدة البيانات. يرجى المحاولة لاحقاً.")
+            return
+        
+        if not user or not user.has_approved_course(course_id):
+            logger.warning(f"User {update.effective_user.id} attempted to access assignments for course {course_id} without approval")
+            await query.message.reply_text("❌ ليس لديك صلاحية الوصول لهذا المحتوى")
+            return
+        
+        # If a group link is configured, show it instead of content
+        link = None
+        try:
+            from config.courses_config import get_course
+            course = get_course(course_id)
+            if course and course.get('group_link'):
+                link = course['group_link']
+            else:
+                gl_path = Path('data/group_links.json')
+                if gl_path.exists():
+                    with open(gl_path, 'r', encoding='utf-8') as f:
+                        gl = json.load(f)
+                        link = gl.get('courses', {}).get(course_id) or gl.get(course_id)
         except Exception as e:
-            logger.error(f"Error loading assignments: {e}")
-    
-    if course_assignments:
-        # Remove duplicates by title
-        seen_titles = {}
-        unique_assignments = []
+            logger.error(f"Error loading course group link: {e}")
         
-        for assignment in course_assignments:
-            title = assignment.get('title', '')
-            if title and title not in seen_titles:
-                seen_titles[title] = True
-                unique_assignments.append(assignment)
+        if link:
+            text = f"🔗 **رابط مجموعة الدورة**\n\nانضم عبر الزر التالي:"
+            keyboard = [
+                [InlineKeyboardButton("🔗 الانضمام إلى المجموعة", url=link)],
+                [InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")]
+            ]
+            await query.message.edit_text(
+                text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode="Markdown"
+            )
+            return
         
-        text = f"📝 **الواجبات المتاحة** ({len(unique_assignments)} واجب)\n\n"
+        # Load assignments from JSON
+        import json
+        from pathlib import Path
+        from datetime import datetime
         
-        keyboard = []
-        for i, assignment in enumerate(unique_assignments, 1):
-            title = assignment.get('title', f'واجب {i}')
-            description = assignment.get('description', '')
+        assignments_file = Path('data/assignments.json')
+        course_assignments = []
+        
+        if assignments_file.exists():
+            try:
+                with open(assignments_file, 'r', encoding='utf-8') as f:
+                    all_assignments = json.load(f)
+                    # Filter assignments for this course
+                    course_assignments = [a for a in all_assignments if a.get('type') == 'courses' and a.get('item_id') == course_id]
+            except Exception as e:
+                logger.error(f"Error loading assignments: {e}")
+        
+        if course_assignments:
+            # Remove duplicates by title
+            seen_titles = {}
+            unique_assignments = []
             
-            text += f"{i}. **{title}**\n"
-            if description:
-                desc_short = description[:50]
-                text += f"   📝 {desc_short}{'...' if len(description) > 50 else ''}\n"
-            text += "\n"
+            for assignment in course_assignments:
+                title = assignment.get('title', '')
+                if title and title not in seen_titles:
+                    seen_titles[title] = True
+                    unique_assignments.append(assignment)
             
-            # Add button to view assignment details
-            keyboard.append([InlineKeyboardButton(
-                f"📝 عرض: {title[:30]}", 
-                callback_data=f"view_assignment_{i-1}_{course_id}"
-            )])
-        
-        keyboard.append([InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")])
-        
-        await query.message.edit_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="Markdown"
-        )
-        
-        # Store assignments in context for viewing
-        context.user_data[f'assignments_{course_id}'] = unique_assignments
-    else:
-        text = """
+            text = f"📝 **الواجبات المتاحة** ({len(unique_assignments)} واجب)\n\n"
+            
+            keyboard = []
+            for i, assignment in enumerate(unique_assignments, 1):
+                title = assignment.get('title', f'واجب {i}')
+                description = assignment.get('description', '')
+                
+                text += f"{i}. **{title}**\n"
+                if description:
+                    desc_short = description[:50]
+                    text += f"   📝 {desc_short}{'...' if len(description) > 50 else ''}\n"
+                text += "\n"
+                
+                # Add button to view assignment details
+                keyboard.append([InlineKeyboardButton(
+                    f"📝 عرض: {title[:30]}", 
+                    callback_data=f"view_assignment_{i-1}_{course_id}"
+                )])
+            
+            keyboard.append([InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")])
+            
+            await query.message.edit_text(
+                text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode="Markdown"
+            )
+            
+            # Store assignments in context for viewing
+            context.user_data[f'assignments_{course_id}'] = unique_assignments
+        else:
+            text = """
 📝 **الواجبات**
 
 لا توجد واجبات متاحة حالياً...
 
 📝 سيتم إضافة الواجبات قريباً من قبل المدرس.
-        """
-        
-        keyboard = [[InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")]]
-        
-        await query.message.edit_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+            """
+            
+            keyboard = [[InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")]]
+            
+            await query.message.edit_text(
+                text,
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+    except Exception as e:
+        logger.error(f"Error in show_assignments: {repr(e)}", exc_info=True)
+        await query.message.reply_text("❌ حدث خطأ. يرجى المحاولة لاحقاً.")
 
 
 async def view_assignment(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -496,10 +525,18 @@ async def show_exams(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info(f"Show exams for course: {course_id}")
         
         # Verify user has access
-        user = await User.find_one(User.telegram_id == update.effective_user.id)
+        try:
+            user = await User.find_one(User.telegram_id == update.effective_user.id)
+        except Exception as db_error:
+            logger.error(f"Database error while fetching user {update.effective_user.id}: {repr(db_error)}")
+            await query.edit_message_text("❌ خطأ في قاعدة البيانات. يرجى المحاولة لاحقاً.")
+            return
+        
         if not user or not user.has_approved_course(course_id):
+            logger.warning(f"User {update.effective_user.id} attempted to access exams for course {course_id} without approval")
             await query.edit_message_text("❌ ليس لديك صلاحية الوصول لهذا المحتوى")
             return
+        
         # If a group link is configured, show it instead of content
         link = None
         try:
@@ -623,82 +660,93 @@ async def show_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    course_id = query.data.replace("links_", "")
-    
-    # Verify user has access
-    user = await User.find_one(User.telegram_id == update.effective_user.id)
-    if not user or not user.has_approved_course(course_id):
-        await query.message.reply_text("❌ ليس لديك صلاحية الوصول لهذا المحتوى")
-        return
-    
-    # Try to load links from data/links.json
-    links = []
     try:
-        links_path = Path('data/links.json')
-        if links_path.exists():
-            with open(links_path, 'r', encoding='utf-8') as f:
-                import json
-                all_links = json.load(f)
-                # Support both nested and flat structures
-                course_links = (
-                    all_links.get('courses', {}).get(course_id)
-                    if isinstance(all_links, dict) else None
-                )
-                if course_links and isinstance(course_links, list):
-                    links = [l for l in course_links if isinstance(l, dict) and l.get('url')]
-                elif isinstance(all_links, dict) and all_links.get(course_id):
-                    # Flat mapping
-                    raw = all_links.get(course_id)
-                    if isinstance(raw, list):
-                        links = [l for l in raw if isinstance(l, dict) and l.get('url')]
-    except Exception as e:
-        logger.error(f"Error loading course links: {e}")
-    
-    # Fallback to single group link from group_links.json
-    group_link = None
-    if not links:
+        course_id = query.data.replace("links_", "")
+        
+        # Verify user has access
         try:
-            gl_path = Path('data/group_links.json')
-            if gl_path.exists():
-                with open(gl_path, 'r', encoding='utf-8') as f:
-                    gl = json.load(f)
-                    group_link = gl.get('courses', {}).get(course_id) or gl.get(course_id)
+            user = await User.find_one(User.telegram_id == update.effective_user.id)
+        except Exception as db_error:
+            logger.error(f"Database error while fetching user {update.effective_user.id}: {repr(db_error)}")
+            await query.message.reply_text("❌ خطأ في قاعدة البيانات. يرجى المحاولة لاحقاً.")
+            return
+        
+        if not user or not user.has_approved_course(course_id):
+            logger.warning(f"User {update.effective_user.id} attempted to access links for course {course_id} without approval")
+            await query.message.reply_text("❌ ليس لديك صلاحية الوصول لهذا المحتوى")
+            return
+        
+        # Try to load links from data/links.json
+        links = []
+        try:
+            links_path = Path('data/links.json')
+            if links_path.exists():
+                with open(links_path, 'r', encoding='utf-8') as f:
+                    import json
+                    all_links = json.load(f)
+                    # Support both nested and flat structures
+                    course_links = (
+                        all_links.get('courses', {}).get(course_id)
+                        if isinstance(all_links, dict) else None
+                    )
+                    if course_links and isinstance(course_links, list):
+                        links = [l for l in course_links if isinstance(l, dict) and l.get('url')]
+                    elif isinstance(all_links, dict) and all_links.get(course_id):
+                        # Flat mapping
+                        raw = all_links.get(course_id)
+                        if isinstance(raw, list):
+                            links = [l for l in raw if isinstance(l, dict) and l.get('url')]
         except Exception as e:
-            logger.error(f"Error loading course group link (fallback): {e}")
-    
-    if links:
-        text = "🔗 **روابط مهمة**\n\nاختر ما تريد فتحه:"
-        keyboard = []
-        for item in links:
-            title = item.get('title') or item.get('name') or 'رابط'
-            url = item.get('url')
-            if url and url.startswith('http'):
-                keyboard.append([InlineKeyboardButton(title[:40], url=url)])
-        keyboard.append([InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")])
-        await query.message.edit_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="Markdown"
-        )
-    elif group_link:
-        text = "🔗 **رابط المجموعة**\n\nانضم عبر الزر التالي:"
-        keyboard = [
-            [InlineKeyboardButton("🔗 الانضمام إلى المجموعة", url=group_link)],
-            [InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")]
-        ]
-        await query.message.edit_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="Markdown"
-        )
-    else:
-        text = "🔗 **روابط مهمة**\n\nلا توجد روابط حالياً."
-        keyboard = [[InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")]]
-        await query.message.edit_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="Markdown"
-        )
+            logger.error(f"Error loading course links: {e}")
+        
+        # Fallback to single group link from group_links.json
+        group_link = None
+        if not links:
+            try:
+                gl_path = Path('data/group_links.json')
+                if gl_path.exists():
+                    with open(gl_path, 'r', encoding='utf-8') as f:
+                        gl = json.load(f)
+                        group_link = gl.get('courses', {}).get(course_id) or gl.get(course_id)
+            except Exception as e:
+                logger.error(f"Error loading course group link (fallback): {e}")
+        
+        if links:
+            text = "🔗 **روابط مهمة**\n\nاختر ما تريد فتحه:"
+            keyboard = []
+            for item in links:
+                title = item.get('title') or item.get('name') or 'رابط'
+                url = item.get('url')
+                if url and url.startswith('http'):
+                    keyboard.append([InlineKeyboardButton(title[:40], url=url)])
+            keyboard.append([InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")])
+            await query.message.edit_text(
+                text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode="Markdown"
+            )
+        elif group_link:
+            text = "🔗 **رابط المجموعة**\n\nانضم عبر الزر التالي:"
+            keyboard = [
+                [InlineKeyboardButton("🔗 الانضمام إلى المجموعة", url=group_link)],
+                [InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")]
+            ]
+            await query.message.edit_text(
+                text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode="Markdown"
+            )
+        else:
+            text = "🔗 **روابط مهمة**\n\nلا توجد روابط حالياً."
+            keyboard = [[InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")]]
+            await query.message.edit_text(
+                text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode="Markdown"
+            )
+    except Exception as e:
+        logger.error(f"Error in show_links: {repr(e)}", exc_info=True)
+        await query.message.reply_text("❌ حدث خطأ. يرجى المحاولة لاحقاً.")
 
 
 async def show_certificate(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -706,24 +754,35 @@ async def show_certificate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    course_id = query.data.replace("certificate_", "")
-    
-    # Verify user has access
-    user = await User.find_one(User.telegram_id == update.effective_user.id)
-    if not user or not user.has_approved_course(course_id):
-        await query.message.reply_text("❌ ليس لديك صلاحية الوصول لهذا المحتوى")
-        return
-    
-    # Check if course is completed
-    enrollment = user.get_course_enrollment(course_id)
-    if enrollment and enrollment.completed:
-        text = "🎓 **الشهادة**\n\n✅ تهانينا! أكملت الدورة بنجاح!\nستحصل على الشهادة قريباً..."
-    else:
-        text = "🎓 **الشهادة**\n\n⏳ أكمل الدورة أولاً للحصول على الشهادة"
-    
-    keyboard = [[InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")]]
-    
-    await query.message.reply_text(
-        text,
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    try:
+        course_id = query.data.replace("certificate_", "")
+        
+        # Verify user has access
+        try:
+            user = await User.find_one(User.telegram_id == update.effective_user.id)
+        except Exception as db_error:
+            logger.error(f"Database error while fetching user {update.effective_user.id}: {repr(db_error)}")
+            await query.message.reply_text("❌ خطأ في قاعدة البيانات. يرجى المحاولة لاحقاً.")
+            return
+        
+        if not user or not user.has_approved_course(course_id):
+            logger.warning(f"User {update.effective_user.id} attempted to access certificate for course {course_id} without approval")
+            await query.message.reply_text("❌ ليس لديك صلاحية الوصول لهذا المحتوى")
+            return
+        
+        # Check if course is completed
+        enrollment = user.get_course_enrollment(course_id)
+        if enrollment and enrollment.completed:
+            text = "🎓 **الشهادة**\n\n✅ تهانينا! أكملت الدورة بنجاح!\nستحصل على الشهادة قريباً..."
+        else:
+            text = "🎓 **الشهادة**\n\n⏳ أكمل الدورة أولاً للحصول على الشهادة"
+        
+        keyboard = [[InlineKeyboardButton("« رجوع", callback_data=f"course_{course_id}")]]
+        
+        await query.message.reply_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    except Exception as e:
+        logger.error(f"Error in show_certificate: {repr(e)}", exc_info=True)
+        await query.message.reply_text("❌ حدث خطأ. يرجى المحاولة لاحقاً.")

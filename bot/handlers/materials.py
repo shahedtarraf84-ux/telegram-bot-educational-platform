@@ -118,11 +118,13 @@ async def show_material_details(update: Update, context: ContextTypes.DEFAULT_TY
             return
             
         if not user:
+            logger.warning(f"User not found for telegram_id={update.effective_user.id} trying to access material {material_id}")
             await query.message.reply_text("❌ يرجى التسجيل أولاً باستخدام /start")
             return
     except Exception as e:
-        logger.error(f"Error in show_material_details: {repr(e)}")
+        logger.error(f"Error in show_material_details: {repr(e)}", exc_info=True)
         await query.message.reply_text("❌ حدث خطأ. يرجى المحاولة لاحقاً.")
+        return
     
     # Check if already enrolled
     enrollment = user.get_material_enrollment(material_id)
