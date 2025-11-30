@@ -201,23 +201,56 @@ async def asking_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ASKING_EMAIL
     
     # Check if email already exists
+    existing_user = None
     try:
-        logger.debug(f"asking_email: checking existing user by email={email}")
-        existing_user = await User.find_one(User.email == email)
+        logger.debug(f"[EMAIL_CHECK] Checking existing user by email={email}")
+        print(f"[EMAIL_CHECK] Attempting to find user with email={email}", flush=True)
+        
+        # Verify database connection first
+        from database.connection import Database
+        is_connected = await Database.is_connected()
+        if not is_connected:
+            logger.error(f"[EMAIL_CHECK] Database not connected when checking email {email}")
+            print(f"[EMAIL_CHECK] ERROR: Database not connected", flush=True)
+            existing_user = None
+        else:
+            logger.debug(f"[EMAIL_CHECK] Database is connected, proceeding with query")
+            existing_user = await User.find_one(User.email == email)
+            logger.debug(f"[EMAIL_CHECK] Query result: user={'Found' if existing_user else 'Not found'}")
+            print(f"[EMAIL_CHECK] Query result: user={'Found' if existing_user else 'Not found'}", flush=True)
+            
     except ValidationError as e:
         # قد تشير إلى سجلات تالفة قديمة بنفس البريد - نحاول تنظيفها ثم نكمل
-        logger.error(f"Validation error while checking email {email}: {repr(e)}. Attempting cleanup.")
+        error_type = type(e).__name__
+        error_msg = f"[EMAIL_CHECK] Validation error while checking email {email}: {error_type}: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        print(f"ERROR: {error_msg}", flush=True)
+        print(f"[EMAIL_CHECK] Attempting cleanup of corrupted documents", flush=True)
+        
         try:
             collection = User.get_motor_collection()
             result = await collection.delete_many({"email": email})
-            logger.info(f"Deleted {result.deleted_count} corrupted user documents with email {email}")
+            logger.info(f"[EMAIL_CHECK] Deleted {result.deleted_count} corrupted user documents with email {email}")
+            print(f"[EMAIL_CHECK] Deleted {result.deleted_count} corrupted documents", flush=True)
         except Exception as cleanup_error:
-            logger.error(f"Failed to cleanup corrupted user docs with email {email}: {repr(cleanup_error)}")
+            cleanup_error_type = type(cleanup_error).__name__
+            cleanup_error_msg = f"[EMAIL_CHECK] Failed to cleanup corrupted user docs: {cleanup_error_type}: {str(cleanup_error)}"
+            logger.error(cleanup_error_msg, exc_info=True)
+            print(f"ERROR: {cleanup_error_msg}", flush=True)
         existing_user = None
+        
     except Exception as e:
-        logger.error(f"Unexpected DB error while checking email {email}: {repr(e)}")
+        error_type = type(e).__name__
+        error_msg = f"[EMAIL_CHECK] Unexpected DB error while checking email {email}: {error_type}: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        print(f"ERROR: {error_msg}", flush=True)
+        import traceback
+        traceback.print_exc()
         existing_user = None
+    
     if existing_user:
+        logger.warning(f"[EMAIL_CHECK] Email already registered: {email}")
+        print(f"[EMAIL_CHECK] Email already registered: {email}", flush=True)
         await update.message.reply_text(
             "❌ هذا البريد الإلكتروني مسجل مسبقاً!\n\n"
             "يرجى استخدام بريد آخر أو التواصل مع الإدارة."
@@ -262,9 +295,23 @@ async def asking_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.debug(f"[REGISTRATION] User object created: {user}")
         print(f"[REGISTRATION] User object created successfully", flush=True)
         
-        logger.debug(f"[REGISTRATION] Inserting user into MongoDB...")
-        print(f"[REGISTRATION] Inserting user into MongoDB...", flush=True)
-        await user.insert()
+        # Dedicated try-except for the insert operation
+        try:
+            logger.debug(f"[REGISTRATION] Inserting user into MongoDB...")
+            print(f"[REGISTRATION] Inserting user into MongoDB...", flush=True)
+            await user.insert()
+            logger.info(f"✅ [REGISTRATION] User inserted successfully into MongoDB")
+            print(f"✅ [REGISTRATION] User inserted successfully into MongoDB", flush=True)
+        except Exception as insert_error:
+            insert_error_type = type(insert_error).__name__
+            insert_error_msg = f"[REGISTRATION] FAILED to insert user: {insert_error_type}: {str(insert_error)}"
+            logger.error(insert_error_msg, exc_info=True)
+            print(f"ERROR: {insert_error_msg}", flush=True)
+            import traceback
+            insert_traceback = traceback.format_exc()
+            logger.error(f"[REGISTRATION] Insert Traceback:\n{insert_traceback}")
+            print(f"[REGISTRATION] Insert Traceback:\n{insert_traceback}", flush=True)
+            raise  # Re-raise to be caught by outer exception handler
         
         logger.info(f"✅ [REGISTRATION] New user registered successfully: {full_name} (ID: {telegram_id})")
         print(f"✅ [REGISTRATION] New user registered: {full_name} (ID: {telegram_id})", flush=True)
