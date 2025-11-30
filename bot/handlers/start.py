@@ -177,30 +177,55 @@ async def asking_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Create new user
     try:
+        telegram_id = update.effective_user.id
+        full_name = context.user_data.get('full_name')
+        phone = context.user_data.get('phone')
+        
         logger.debug(
-            "asking_email: creating new user with "
-            f"telegram_id={update.effective_user.id}, "
-            f"full_name={context.user_data.get('full_name')}, "
-            f"phone={context.user_data.get('phone')}, "
+            f"[REGISTRATION] Creating new user: "
+            f"telegram_id={telegram_id}, "
+            f"full_name={full_name}, "
+            f"phone={phone}, "
             f"email={email}"
         )
+        print(f"[REGISTRATION] Creating new user: telegram_id={telegram_id}, email={email}", flush=True)
+        
+        # Verify database connection before attempting save
+        from database.connection import Database
+        is_connected = await Database.is_connected()
+        if not is_connected:
+            logger.error(f"[REGISTRATION] Database not connected for user {telegram_id}")
+            print(f"[REGISTRATION] ERROR: Database not connected for user {telegram_id}", flush=True)
+            await update.message.reply_text(
+                "❌ **خطأ في الاتصال بقاعدة البيانات!**\n\n"
+                "يرجى المحاولة مرة أخرى خلال لحظات."
+            )
+            context.user_data.clear()
+            return ConversationHandler.END
+        
         user = User(
-            telegram_id=update.effective_user.id,
-            full_name=context.user_data['full_name'],
-            phone=context.user_data['phone'],
+            telegram_id=telegram_id,
+            full_name=full_name,
+            phone=phone,
             email=email
         )
-        logger.debug("asking_email: inserting new user into MongoDB")
+        
+        logger.debug(f"[REGISTRATION] User object created: {user}")
+        print(f"[REGISTRATION] User object created successfully", flush=True)
+        
+        logger.debug(f"[REGISTRATION] Inserting user into MongoDB...")
+        print(f"[REGISTRATION] Inserting user into MongoDB...", flush=True)
         await user.insert()
         
-        logger.info(f"New user registered: {user.full_name} ({user.telegram_id})")
+        logger.info(f"✅ [REGISTRATION] New user registered successfully: {full_name} (ID: {telegram_id})")
+        print(f"✅ [REGISTRATION] New user registered: {full_name} (ID: {telegram_id})", flush=True)
         
         success_text = f"""
 ✅ **تم التسجيل بنجاح!**
 
-👤 الاسم: {user.full_name}
-📱 الهاتف: {user.phone}
-📧 البريد: {user.email}
+👤 الاسم: {full_name}
+📱 الهاتف: {phone}
+📧 البريد: {email}
 
 يمكنك الآن تصفح الدورات والمواد من القائمة بالأسفل 👇
         """
@@ -216,22 +241,45 @@ async def asking_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
         
     except Exception as e:
-        # Log error details to both logger and stdout for Vercel visibility
-        error_msg = f"Registration error for telegram_id={update.effective_user.id}, email={email}: {repr(e)}"
+        # Comprehensive error logging for Vercel debugging
+        error_type = type(e).__name__
+        error_str = str(e)
+        telegram_id = update.effective_user.id
+        
+        error_msg = (
+            f"[REGISTRATION] ❌ FAILED for telegram_id={telegram_id}, email={email}\n"
+            f"Error Type: {error_type}\n"
+            f"Error Message: {error_str}"
+        )
         logger.error(error_msg, exc_info=True)
         print(f"ERROR: {error_msg}", flush=True)
-        import traceback
-        traceback.print_exc()
         
+        # Print full traceback for debugging
+        import traceback
+        tb_str = traceback.format_exc()
+        logger.error(f"[REGISTRATION] Traceback:\n{tb_str}")
+        print(f"[REGISTRATION] Traceback:\n{tb_str}", flush=True)
+        
+        # Determine user-friendly error message
         msg = "❌ **حدث خطأ أثناء التسجيل!**\n\n"
-        error_text = str(e).lower()
+        error_text = error_str.lower()
+        
         if "duplicate key" in error_text or "e11000" in error_text:
+            logger.warning(f"[REGISTRATION] Duplicate key error for email={email}")
             msg += (
                 "يبدو أن هذا البريد الإلكتروني أو حساب التلغرام مسجّل مسبقاً في النظام.\n"
                 "جرّب بريدًا إلكترونيًا آخر أو تواصل مع الإدارة إذا كنت متأكداً أن هذا خطأ."
             )
+        elif "connection" in error_text or "timeout" in error_text:
+            logger.error(f"[REGISTRATION] Connection/Timeout error for user {telegram_id}")
+            msg += "خطأ في الاتصال بقاعدة البيانات. يرجى المحاولة مرة أخرى خلال لحظات."
+        elif "validation" in error_text:
+            logger.error(f"[REGISTRATION] Validation error for user {telegram_id}: {error_str}")
+            msg += "بيانات غير صحيحة. يرجى التحقق من المعلومات المدخلة."
         else:
+            logger.error(f"[REGISTRATION] Unexpected error for user {telegram_id}: {error_type}")
             msg += "يرجى المحاولة مرة أخرى لاحقاً أو التواصل مع الإدارة."
+        
         await update.message.reply_text(msg)
         context.user_data.clear()
         return ConversationHandler.END

@@ -39,22 +39,59 @@ app.mount("/admin", dashboard_app)
 @app.on_event("startup")
 async def on_startup() -> None:
     """Startup logic for unified server."""
+    logger.info("🚀 Starting Educational Platform server...")
+    print("🚀 Starting Educational Platform server...", flush=True)
+    
+    # Initialize database connection FIRST
+    try:
+        from database.connection import Database
+        logger.info("📡 Initializing MongoDB connection...")
+        print("📡 Initializing MongoDB connection...", flush=True)
+        await Database.connect()
+        logger.info("✅ MongoDB connection established")
+        print("✅ MongoDB connection established", flush=True)
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize database: {repr(e)}", exc_info=True)
+        print(f"❌ Failed to initialize database: {repr(e)}", flush=True)
+        raise
+    
     # Start Telegram bot (webhook mode)
-    await telegram_app.initialize()
-    await telegram_app.start()
+    try:
+        logger.info("🤖 Initializing Telegram bot...")
+        print("🤖 Initializing Telegram bot...", flush=True)
+        await telegram_app.initialize()
+        await telegram_app.start()
+        logger.info("✅ Telegram bot initialized")
+        print("✅ Telegram bot initialized", flush=True)
 
-    webhook_url = BOT_WEBHOOK_URL
-    if webhook_url:
-        await telegram_app.bot.set_webhook(url=webhook_url)
-        logger.info(f"Webhook set to {webhook_url}")
-    else:
-        logger.warning("BOT_WEBHOOK_URL is not set; skipping set_webhook")
+        webhook_url = BOT_WEBHOOK_URL
+        if webhook_url:
+            await telegram_app.bot.set_webhook(url=webhook_url)
+            logger.info(f"✅ Webhook set to {webhook_url}")
+            print(f"✅ Webhook set to {webhook_url}", flush=True)
+        else:
+            logger.warning("⚠️ BOT_WEBHOOK_URL is not set; skipping set_webhook")
+            print("⚠️ BOT_WEBHOOK_URL is not set; skipping set_webhook", flush=True)
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize Telegram bot: {repr(e)}", exc_info=True)
+        print(f"❌ Failed to initialize Telegram bot: {repr(e)}", flush=True)
+        raise
 
     # Start background notification scheduler
-    app.state.notification_scheduler_task = asyncio.create_task(
-        NotificationScheduler.start_notification_scheduler()
-    )
-    logger.info("Notification scheduler started")
+    try:
+        logger.info("📬 Starting notification scheduler...")
+        print("📬 Starting notification scheduler...", flush=True)
+        app.state.notification_scheduler_task = asyncio.create_task(
+            NotificationScheduler.start_notification_scheduler()
+        )
+        logger.info("✅ Notification scheduler started")
+        print("✅ Notification scheduler started", flush=True)
+    except Exception as e:
+        logger.error(f"❌ Failed to start notification scheduler: {repr(e)}", exc_info=True)
+        print(f"❌ Failed to start notification scheduler: {repr(e)}", flush=True)
+    
+    logger.info("✅ Server startup completed successfully")
+    print("✅ Server startup completed successfully", flush=True)
 
 
 @app.on_event("shutdown")
@@ -77,12 +114,44 @@ async def on_shutdown() -> None:
 @app.get("/")
 async def health_check() -> dict:
     """Health check endpoint."""
+    from database.connection import Database
+    db_connected = await Database.is_connected()
     return {
         "status": "ok",
         "service": "Educational Platform",
         "bot_webhook": True,
         "admin_dashboard": True,
+        "database": "connected" if db_connected else "disconnected",
     }
+
+
+@app.get("/health/db")
+async def db_health_check() -> dict:
+    """Database health check endpoint for monitoring."""
+    from database.connection import Database
+    try:
+        is_connected = await Database.is_connected()
+        if is_connected:
+            return {
+                "status": "healthy",
+                "database": "MongoDB",
+                "connected": True,
+            }
+        else:
+            return {
+                "status": "unhealthy",
+                "database": "MongoDB",
+                "connected": False,
+                "error": "Database not initialized",
+            }
+    except Exception as e:
+        logger.error(f"Database health check failed: {repr(e)}")
+        return {
+            "status": "unhealthy",
+            "database": "MongoDB",
+            "connected": False,
+            "error": str(e),
+        }
 
 
 @app.post("/webhook")
