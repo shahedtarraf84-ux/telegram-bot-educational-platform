@@ -28,18 +28,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.debug(f"[START] Checking existing user by telegram_id={telegram_id}")
         print(f"[START] Attempting to find user with telegram_id={telegram_id}", flush=True)
         
-        # Verify database connection first
-        from database.connection import Database
-        is_connected = await Database.is_connected()
-        if not is_connected:
-            logger.error(f"[START] Database not connected when checking user {telegram_id}")
-            print(f"[START] ERROR: Database not connected", flush=True)
-            user = None
-        else:
-            logger.debug(f"[START] Database is connected, proceeding with query")
-            user = await User.find_one(User.telegram_id == telegram_id)
-            logger.debug(f"[START] Query result: user={'Found' if user else 'Not found'}")
-            print(f"[START] Query result: user={'Found' if user else 'Not found'}", flush=True)
+        user = await User.find_one(User.telegram_id == telegram_id)
+        logger.debug(f"[START] Query result: user={'Found' if user else 'Not found'}")
+        print(f"[START] Query result: user={'Found' if user else 'Not found'}", flush=True)
             
     except ValidationError as e:
         # مشكلة في تحميل مستند مستخدم من قاعدة البيانات (سكيما قديمة أو بيانات تالفة)
@@ -206,18 +197,9 @@ async def asking_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.debug(f"[EMAIL_CHECK] Checking existing user by email={email}")
         print(f"[EMAIL_CHECK] Attempting to find user with email={email}", flush=True)
         
-        # Verify database connection first
-        from database.connection import Database
-        is_connected = await Database.is_connected()
-        if not is_connected:
-            logger.error(f"[EMAIL_CHECK] Database not connected when checking email {email}")
-            print(f"[EMAIL_CHECK] ERROR: Database not connected", flush=True)
-            existing_user = None
-        else:
-            logger.debug(f"[EMAIL_CHECK] Database is connected, proceeding with query")
-            existing_user = await User.find_one(User.email == email)
-            logger.debug(f"[EMAIL_CHECK] Query result: user={'Found' if existing_user else 'Not found'}")
-            print(f"[EMAIL_CHECK] Query result: user={'Found' if existing_user else 'Not found'}", flush=True)
+        existing_user = await User.find_one(User.email == email)
+        logger.debug(f"[EMAIL_CHECK] Query result: user={'Found' if existing_user else 'Not found'}")
+        print(f"[EMAIL_CHECK] Query result: user={'Found' if existing_user else 'Not found'}", flush=True)
             
     except ValidationError as e:
         # قد تشير إلى سجلات تالفة قديمة بنفس البريد - نحاول تنظيفها ثم نكمل
@@ -271,19 +253,6 @@ async def asking_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"email={email}"
         )
         print(f"[REGISTRATION] Creating new user: telegram_id={telegram_id}, email={email}", flush=True)
-        
-        # Verify database connection before attempting save
-        from database.connection import Database
-        is_connected = await Database.is_connected()
-        if not is_connected:
-            logger.error(f"[REGISTRATION] Database not connected for user {telegram_id}")
-            print(f"[REGISTRATION] ERROR: Database not connected for user {telegram_id}", flush=True)
-            await update.message.reply_text(
-                "❌ **خطأ في الاتصال بقاعدة البيانات!**\n\n"
-                "يرجى المحاولة مرة أخرى خلال لحظات."
-            )
-            context.user_data.clear()
-            return ConversationHandler.END
         
         user = User(
             telegram_id=telegram_id,

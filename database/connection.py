@@ -116,14 +116,27 @@ class Database:
     @classmethod
     async def is_connected(cls) -> bool:
         """Check if database is connected and healthy"""
+        # If client is None, try to initialize
+        if cls.client is None:
+            logger.debug("Database client is None, attempting to initialize")
+            try:
+                await cls.connect()
+            except Exception as e:
+                logger.error(f"Failed to initialize database: {repr(e)}")
+                return False
+        
+        # If still not initialized, return False
         if cls.client is None or not cls.beanie_initialized:
+            logger.debug(f"Database not ready: client={cls.client is not None}, beanie_initialized={cls.beanie_initialized}")
             return False
         
         try:
             await cls.client.admin.command('ping')
+            logger.debug("Database health check passed")
             return True
         except Exception as e:
-            logger.error(f"Health check failed: {repr(e)}")
+            logger.error(f"Health check failed: {repr(e)}", exc_info=True)
+            print(f"ERROR: Health check failed: {repr(e)}", flush=True)
             return False
     
     @classmethod
