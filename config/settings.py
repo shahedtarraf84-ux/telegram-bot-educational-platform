@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     HARAM_NUMBER: str
     
     # App
-    DEBUG: bool = True
+    DEBUG: bool = False
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     
