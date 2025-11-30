@@ -2,6 +2,7 @@
 MongoDB Connection - Optimized for Vercel Serverless
 """
 import asyncio
+import os
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 from loguru import logger
@@ -9,8 +10,9 @@ from loguru import logger
 from config.settings import settings
 from database.models.user import User
 from database.models.video import Video
-from database.models.assignment import Assignment
+from database.models.assignment import Assignment, AssignmentSubmission
 from database.models.notification import Notification
+from database.models.quiz import Quiz
 
 
 class Database:
@@ -65,13 +67,17 @@ class Database:
                 
                 # Initialize Beanie only once
                 if not cls.beanie_initialized:
+                    # Use environment variable for database name, fallback to settings
+                    db_name = os.getenv("MONGODB_DB_NAME") or settings.MONGODB_DB_NAME
                     await init_beanie(
-                        database=cls.client[settings.MONGODB_DB_NAME],
+                        database=cls.client[db_name],
                         document_models=[
                             User,
                             Video,
                             Assignment,
+                            AssignmentSubmission,
                             Notification,
+                            Quiz,
                         ]
                     )
                     cls.beanie_initialized = True
