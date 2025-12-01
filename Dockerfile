@@ -36,5 +36,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8080/', timeout=5)" || exit 1
 
-# Run the application - Railway will set PORT environment variable
-CMD ["/app/start.sh"]
+# Run the application in polling mode
+CMD ["python", "polling_server.py"]
