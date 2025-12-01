@@ -146,10 +146,15 @@ async def on_shutdown() -> None:
 
 
 @app.get("/")
-async def health_check() -> dict:
-    """Health check endpoint."""
-    from database.connection import Database
-    db_connected = await Database.is_connected()
+async def root() -> dict:
+    """Root health check endpoint."""
+    db_connected = False
+    try:
+        from database.connection import Database
+        db_connected = await Database.is_connected()
+    except Exception:
+        pass
+    
     return {
         "status": "ok",
         "service": "Educational Platform",
@@ -157,6 +162,12 @@ async def health_check() -> dict:
         "admin_dashboard": True,
         "database": "connected" if db_connected else "disconnected",
     }
+
+
+@app.get("/test")
+async def test_endpoint() -> dict:
+    """Simple test endpoint."""
+    return {"status": "ok", "message": "Test endpoint working"}
 
 
 @app.get("/webhook/test")
