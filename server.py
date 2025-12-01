@@ -160,6 +160,7 @@ async def db_health_check() -> dict:
 
 
 @app.post("/webhook")
+@app.post("/api/webhook")
 async def telegram_webhook(request: Request) -> dict:
     """Telegram webhook endpoint."""
     try:
