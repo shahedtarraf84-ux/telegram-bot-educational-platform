@@ -23,7 +23,14 @@ from utils.notifications import NotificationScheduler
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN") or settings.TELEGRAM_BOT_TOKEN
 MONGODB_URL = os.environ.get("MONGODB_URL") or settings.MONGODB_URL
 MONGODB_DB_NAME = os.environ.get("MONGODB_DB_NAME") or settings.MONGODB_DB_NAME
+
+# Get webhook URL - try multiple sources
 BOT_WEBHOOK_URL = os.environ.get("BOT_WEBHOOK_URL") or settings.BOT_WEBHOOK_URL
+
+# Log the webhook URL
+print(f"🔗 BOT_WEBHOOK_URL: {BOT_WEBHOOK_URL}", flush=True)
+if not BOT_WEBHOOK_URL:
+    print("⚠️ WARNING: BOT_WEBHOOK_URL is not set!", flush=True)
 
 
 # Create Telegram bot application
