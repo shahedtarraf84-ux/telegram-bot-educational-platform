@@ -53,7 +53,8 @@ async def on_startup() -> None:
     except Exception as e:
         logger.error(f"❌ Failed to initialize database: {repr(e)}", exc_info=True)
         print(f"❌ Failed to initialize database: {repr(e)}", flush=True)
-        raise
+        # Don't raise - allow server to start even if DB fails initially
+        print("⚠️ Server continuing without database connection", flush=True)
     
     # Start Telegram bot (webhook mode)
     try:
@@ -66,16 +67,20 @@ async def on_startup() -> None:
 
         webhook_url = BOT_WEBHOOK_URL
         if webhook_url:
-            await telegram_app.bot.set_webhook(url=webhook_url)
-            logger.info(f"✅ Webhook set to {webhook_url}")
-            print(f"✅ Webhook set to {webhook_url}", flush=True)
+            try:
+                await telegram_app.bot.set_webhook(url=webhook_url)
+                logger.info(f"✅ Webhook set to {webhook_url}")
+                print(f"✅ Webhook set to {webhook_url}", flush=True)
+            except Exception as webhook_error:
+                logger.warning(f"⚠️ Failed to set webhook: {repr(webhook_error)}")
+                print(f"⚠️ Failed to set webhook: {repr(webhook_error)}", flush=True)
         else:
             logger.warning("⚠️ BOT_WEBHOOK_URL is not set; skipping set_webhook")
             print("⚠️ BOT_WEBHOOK_URL is not set; skipping set_webhook", flush=True)
     except Exception as e:
         logger.error(f"❌ Failed to initialize Telegram bot: {repr(e)}", exc_info=True)
         print(f"❌ Failed to initialize Telegram bot: {repr(e)}", flush=True)
-        raise
+        # Don't raise - allow server to start even if bot initialization fails
 
     # Start background notification scheduler
     try:
