@@ -7,7 +7,8 @@ import os
 import asyncio
 import uvicorn
 from loguru import logger
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from telegram import Update
 
 from config.settings import settings
 from bot.main import create_application
@@ -40,6 +41,49 @@ async def root():
 async def health():
     """Health check"""
     return {"status": "ok"}
+
+
+@app.post("/webhook")
+@app.post("/api/webhook")
+async def telegram_webhook(request: Request) -> dict:
+    """Telegram webhook endpoint - for compatibility"""
+    try:
+        data = await request.json()
+        logger.info(f"📨 Webhook received data: {data}")
+        print(f"📨 Webhook received data: {data}", flush=True)
+        
+        if not data:
+            logger.warning("⚠️ Empty webhook data received")
+            print("⚠️ Empty webhook data received", flush=True)
+            return {"ok": True}
+        
+        # Log update type
+        if "message" in data:
+            print(f"📨 Message received: {data['message']}", flush=True)
+        if "callback_query" in data:
+            print(f"📨 Callback query received: {data['callback_query']}", flush=True)
+        
+        if telegram_app:
+            update = Update.de_json(data, telegram_app.bot)
+            logger.info(f"✅ Update created from data")
+            print(f"✅ Update created: type={type(update)}, update_id={update.update_id}", flush=True)
+            
+            # Process the update
+            logger.info(f"🔄 Processing update {update.update_id}...")
+            print(f"🔄 Processing update {update.update_id}...", flush=True)
+            
+            await telegram_app.process_update(update)
+            
+            logger.info(f"✅ Update {update.update_id} processed successfully")
+            print(f"✅ Update {update.update_id} processed successfully", flush=True)
+        
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"❌ Webhook processing error: {repr(e)}", exc_info=True)
+        print(f"❌ ERROR: Webhook processing failed: {repr(e)}", flush=True)
+        import traceback
+        traceback.print_exc()
+        return {"ok": True, "error": str(e)}
 
 
 @app.on_event("startup")
