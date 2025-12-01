@@ -68,9 +68,31 @@ async def on_startup() -> None:
         webhook_url = BOT_WEBHOOK_URL
         if webhook_url:
             try:
-                await telegram_app.bot.set_webhook(url=webhook_url)
+                # First, get current webhook info
+                webhook_info = await telegram_app.bot.get_webhook_info()
+                logger.info(f"Current webhook: {webhook_info.url}")
+                print(f"Current webhook: {webhook_info.url}", flush=True)
+                
+                # Delete old webhook if it exists
+                if webhook_info.url:
+                    await telegram_app.bot.delete_webhook(drop_pending_updates=True)
+                    logger.info("✅ Old webhook deleted")
+                    print("✅ Old webhook deleted", flush=True)
+                
+                # Set new webhook
+                await telegram_app.bot.set_webhook(
+                    url=webhook_url,
+                    drop_pending_updates=True,
+                    allowed_updates=["message", "callback_query", "my_chat_member"]
+                )
                 logger.info(f"✅ Webhook set to {webhook_url}")
                 print(f"✅ Webhook set to {webhook_url}", flush=True)
+                
+                # Verify webhook was set
+                webhook_info = await telegram_app.bot.get_webhook_info()
+                logger.info(f"✅ Webhook verified: {webhook_info.url}")
+                print(f"✅ Webhook verified: {webhook_info.url}", flush=True)
+                
             except Exception as webhook_error:
                 logger.warning(f"⚠️ Failed to set webhook: {repr(webhook_error)}")
                 print(f"⚠️ Failed to set webhook: {repr(webhook_error)}", flush=True)
@@ -130,6 +152,16 @@ async def health_check() -> dict:
     }
 
 
+@app.get("/webhook/test")
+async def webhook_test() -> dict:
+    """Test webhook endpoint."""
+    return {
+        "status": "ok",
+        "message": "Webhook endpoint is working",
+        "webhook_url": BOT_WEBHOOK_URL,
+    }
+
+
 @app.get("/health/db")
 async def db_health_check() -> dict:
     """Database health check endpoint for monitoring."""
@@ -165,13 +197,39 @@ async def telegram_webhook(request: Request) -> dict:
     """Telegram webhook endpoint."""
     try:
         data = await request.json()
+        logger.info(f"📨 Webhook received data: {data}")
+        print(f"📨 Webhook received data: {data}", flush=True)
+        
+        # Check if it's a valid update
+        if not data:
+            logger.warning("⚠️ Empty webhook data received")
+            print("⚠️ Empty webhook data received", flush=True)
+            return {"ok": True}
+        
+        # Log update type
+        if "message" in data:
+            print(f"📨 Message received: {data['message']}", flush=True)
+        if "callback_query" in data:
+            print(f"📨 Callback query received: {data['callback_query']}", flush=True)
+        
         update = Update.de_json(data, telegram_app.bot)
+        logger.info(f"✅ Update created from data")
+        print(f"✅ Update created: type={type(update)}, update_id={update.update_id}", flush=True)
+        
+        # Process the update
+        logger.info(f"🔄 Processing update {update.update_id}...")
+        print(f"🔄 Processing update {update.update_id}...", flush=True)
+        
         await telegram_app.process_update(update)
+        
+        logger.info(f"✅ Update {update.update_id} processed successfully")
+        print(f"✅ Update {update.update_id} processed successfully", flush=True)
+        
         return {"ok": True}
     except Exception as e:
         # Log to both logger and stdout for Vercel visibility
-        logger.error(f"Webhook processing error: {repr(e)}", exc_info=True)
-        print(f"ERROR: Webhook processing failed: {repr(e)}", flush=True)
+        logger.error(f"❌ Webhook processing error: {repr(e)}", exc_info=True)
+        print(f"❌ ERROR: Webhook processing failed: {repr(e)}", flush=True)
         import traceback
         traceback.print_exc()
         # Return 200 OK to Telegram (so it doesn't retry)

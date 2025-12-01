@@ -17,10 +17,19 @@ ASKING_NAME, ASKING_PHONE, ASKING_EMAIL = range(3)
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command"""
+    logger.info("🚀 START COMMAND RECEIVED")
+    print("🚀 START COMMAND RECEIVED", flush=True)
+    
     telegram_id = update.effective_user.id
+    user_name = update.effective_user.first_name or "Unknown"
+    
+    logger.info(f"👤 User: {user_name} (ID: {telegram_id})")
+    print(f"👤 User: {user_name} (ID: {telegram_id})", flush=True)
     
     # Check if user is admin FIRST
     is_admin = telegram_id == settings.TELEGRAM_ADMIN_ID
+    logger.info(f"👑 Is Admin: {is_admin}")
+    print(f"👑 Is Admin: {is_admin}", flush=True)
     
     # Check if user already registered
     user = None
