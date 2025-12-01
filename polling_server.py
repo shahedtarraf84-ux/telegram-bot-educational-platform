@@ -1,6 +1,7 @@
 """
 Hybrid Server - FastAPI + Telegram Bot Polling
 This runs both FastAPI server and Telegram bot in polling mode.
+Version: 2.0 - With webhook endpoint support
 """
 
 import os
