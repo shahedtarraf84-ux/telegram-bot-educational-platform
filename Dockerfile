@@ -25,10 +25,6 @@ RUN pip install --upgrade pip && \
 # Copy the entire application
 COPY . .
 
-# Copy and make entrypoint script executable
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
-
 # Expose port (Railway standard port)
 EXPOSE 8080
 
@@ -37,4 +33,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8080/', timeout=5)" || exit 1
 
 # Run the application - Railway will set PORT environment variable
-ENTRYPOINT ["/app/entrypoint.sh"]
+# Use shell form to allow variable expansion
+CMD sh -c "python -m uvicorn server:app --host 0.0.0.0 --port ${PORT:-8080}"
