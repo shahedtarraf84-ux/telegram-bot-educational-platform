@@ -89,8 +89,8 @@ async def on_startup() -> None:
                 # Set new webhook
                 await telegram_app.bot.set_webhook(
                     url=webhook_url,
-                    drop_pending_updates=True,
-                    allowed_updates=["message", "callback_query", "my_chat_member"]
+                    drop_pending_updates=False,
+                    allowed_updates=None  # Allow all updates
                 )
                 logger.info(f"✅ Webhook set to {webhook_url}")
                 print(f"✅ Webhook set to {webhook_url}", flush=True)
@@ -162,11 +162,50 @@ async def health_check() -> dict:
 @app.get("/webhook/test")
 async def webhook_test() -> dict:
     """Test webhook endpoint."""
-    return {
-        "status": "ok",
-        "message": "Webhook endpoint is working",
-        "webhook_url": BOT_WEBHOOK_URL,
-    }
+    try:
+        webhook_info = await telegram_app.bot.get_webhook_info()
+        return {
+            "status": "ok",
+            "message": "Webhook endpoint is working",
+            "webhook_url": BOT_WEBHOOK_URL,
+            "telegram_webhook_info": {
+                "url": webhook_info.url,
+                "has_custom_certificate": webhook_info.has_custom_certificate,
+                "pending_update_count": webhook_info.pending_update_count,
+                "ip_address": webhook_info.ip_address,
+                "last_error_date": webhook_info.last_error_date,
+                "last_error_message": webhook_info.last_error_message,
+            }
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+
+@app.post("/webhook/test")
+async def webhook_test_post(request: Request) -> dict:
+    """Test webhook with POST request."""
+    try:
+        data = await request.json()
+        logger.info(f"🧪 TEST WEBHOOK RECEIVED: {data}")
+        print(f"🧪 TEST WEBHOOK RECEIVED: {data}", flush=True)
+        
+        # Try to process as update
+        update = Update.de_json(data, telegram_app.bot)
+        logger.info(f"🧪 TEST UPDATE CREATED: {update}")
+        print(f"🧪 TEST UPDATE CREATED: {update}", flush=True)
+        
+        await telegram_app.process_update(update)
+        logger.info(f"🧪 TEST UPDATE PROCESSED")
+        print(f"🧪 TEST UPDATE PROCESSED", flush=True)
+        
+        return {"status": "ok", "message": "Test webhook processed successfully"}
+    except Exception as e:
+        logger.error(f"🧪 TEST WEBHOOK ERROR: {repr(e)}", exc_info=True)
+        print(f"🧪 TEST WEBHOOK ERROR: {repr(e)}", flush=True)
+        return {"status": "error", "message": str(e)}
 
 
 @app.get("/health/db")
