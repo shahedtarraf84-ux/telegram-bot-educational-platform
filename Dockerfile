@@ -34,7 +34,7 @@ EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8080/', timeout=5)" || exit 1
+    CMD python -c "import os,sys,requests; p=os.getenv('PORT','8080'); sys.exit(0 if requests.get(f'http://localhost:{p}/', timeout=5).ok else 1)" || exit 1
 
 # Run the application in polling mode
 CMD ["python", "polling_server.py"]
