@@ -6,5 +6,4 @@ echo "PORT: ${PORT:-8080}"
 echo "TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:0:10}..."
 echo "MONGODB_URL: ${MONGODB_URL:0:30}..."
 
-# Run the application with proper PORT handling
-exec python -m uvicorn server:app --host 0.0.0.0 --port ${PORT:-8080}
+exec python polling_server.py
